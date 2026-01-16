@@ -187,8 +187,18 @@ async fn main() -> Result<()> {
                 let tool_result = match params.name.as_str() {
                     "list_unstaged" => match GitHandler::get_unstaged_files() {
                         Ok(files) => {
-                            json!({ "content": [{ "type": "text", "text": format!("未暂存的文件：\n{}", files.join("\n")) }] })
+                            let text = if files.is_empty() {
+                                "暂无未暂存的文件。".to_string()
+                            } else {
+                                format!(
+                                    "未暂存的文件：\n{}\n\n工作流提醒：\n1. 请向用户展示上述文件列表。\n2. **必须**请用户确认哪些文件需要被暂存（git add）。\n3. 只有在用户明确指定文件后，才可调用 `stage_files`。",
+                                    files.join("\n")
+                                )
+                            };
+
+                            json!({ "content": [{ "type": "text", "text": text }] })
                         }
+
                         Err(e) => {
                             json!({ "isError": true, "content": [{ "type": "text", "text": e.to_string() }] })
                         }
@@ -204,14 +214,22 @@ async fn main() -> Result<()> {
                             })
                             .unwrap_or_default();
                         match GitHandler::stage_files(paths) {
-                            Ok(res) => json!({ "content": [{ "type": "text", "text": res }] }),
+                            Ok(_) => json!({ "content": [{ "type": "text", "text": "文件已成功暂存。\n\n提示：现在请使用 `get_staged_diff` 获取变更差异并生成提交信息草稿。" }] }),
                             Err(e) => {
                                 json!({ "isError": true, "content": [{ "type": "text", "text": e.to_string() }] })
                             }
                         }
+
                     }
                     "get_staged_diff" => match GitHandler::get_staged_diff() {
-                        Ok(diff) => json!({ "content": [{ "type": "text", "text": diff }] }),
+                        Ok(diff) => {
+                            let text = format!(
+                                "{}\n\n工作流提醒：\n1. 请根据上述差异总结一个提交信息草稿。\n2. **必须**询问用户确认 PMS 单号（格式如 BUG-123 或 TASK-456）。\n3. 展示最终提交信息并请求用户明确确认。\n4. 只有在用户确认后，才可调用 `execute_commit`。",
+                                diff
+                            );
+                            json!({ "content": [{ "type": "text", "text": text }] })
+                        }
+
                         Err(e) => {
                             json!({ "isError": true, "content": [{ "type": "text", "text": e.to_string() }] })
                         }
