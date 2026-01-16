@@ -64,6 +64,8 @@ cargo build --release
 | `commitFormat`     | 定义 AI 生成提交信息的模板。支持占位符。                     | 预设的结构化提交模板（包含 Type, Body, Log, PMS, Influence） |
 | `extraConstraints` | 字符串数组。定义 AI 在生成提交信息时必须遵守的额外约束条件。 | 限制行宽 80 字符及中英文 Body 成对出现                       |
 
+> commitFormat 与 extraConstraints 可根据团队需求进行自定义调整，默认是上面展示的内容，若无需修改可去掉该配置。
+
 ## 可用工具 (Tools)
 
 - `list_unstaged`: 列出所有未暂存或未跟踪的文件。
