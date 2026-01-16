@@ -23,10 +23,12 @@ lazy_static::lazy_static! {
 [Chinese body]
 
 Log: [short description of the change use chinese language]
-PMS: <BUG-number>(for bugfix) or <TASK-number>(for add feature) (Must include 'BUG-' or 'TASK-', If the user does not provide a number, remove this line.)
+PMS: <BUG-number> or <TASK-number> (必须包含 'BUG-' 或 'TASK-' 前缀。如果没有，必须询问用户；若用户明确不提供，则从提交信息中删除此行)
 Influence: Explain in Chinese the potential impact of this submission."#.to_string(),
     });
 }
+
+
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -86,12 +88,20 @@ async fn main() -> Result<()> {
                     Tool {
                         name: "get_staged_diff".to_string(),
                         description: format!(
-                            "获取当前 git 暂存区的变更内容 (git diff --staged)。获取后，请你根据变更内容总结出一个提交信息，并询问用户是否提交。\n\n\
+                            "获取当前 git 暂存区的变更内容 (git diff --staged)。\n\n\
+                            ### 工作流要求：\n\
+                            1. 生成提交信息：根据变更内容总结出一个提交信息草稿。\n\
+                            2. 处理 PMS 单号：\n\
+                               - 如果无法确定单号，**必须**询问用户提供。\n\
+                               - 如果用户提供了单号，将其填入提交信息。\n\
+                               - 如果用户明确表示没有单号，**必须从最终提交信息中删除整个 PMS 行**。\n\
+                            3. 用户预览与修改：展示草稿，询问用户确认。\n\
+                            4. 严禁直接提交：必须得到用户明确确认后才能执行 execute_commit。\n\n\
                             ### 提交格式要求：\n{}\n\n\
                             ### 额外约束：\n\
                             - Body 的每一行不得超过 80 个字符。\n\
-                            - 如果修改范围很小，可以同时省略 English body 和 Chinese body。\n\
-                            - 如果不省略 body，则必须同时保留 English body 和 Chinese body，不得只写其中一个。",
+                            - 中英文 Body 必须成对出现，不得只写其中一个。",
+
                             format_hint
                         ),
                         input_schema: json!({
@@ -99,6 +109,7 @@ async fn main() -> Result<()> {
                             "properties": {}
                         }),
                     },
+
 
                     Tool {
                         name: "execute_commit".to_string(),
