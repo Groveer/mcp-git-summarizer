@@ -11,9 +11,20 @@
 - **初始提交支持**：完美支持在没有任何提交记录的新仓库中执行初始提交（Initial Commit）。
 - **PMS 灵活性**：主动询问 PMS 单号（如 BUG-123/TASK-456），并支持在无单号时自动清理格式。
 
-## 安装与构建
+## 安装 (Installation)
 
-确保你的系统已安装 [Rust](https://www.rust-lang.org/) 环境。
+### 直接下载 (Download Binaries)
+
+您可以从 [GitHub Releases](https://github.com/your-username/your-repo/releases) 页面下载预编译好的二进制文件：
+- **Windows (x86_64)**: `git-summarizer-windows-amd64.exe`
+- **Linux (x86_64)**: `git-summarizer-linux-amd64`
+- **Linux (arm64)**: `git-summarizer-linux-arm64`
+
+下载后，将其移动到您的 `PATH` 路径下即可使用。
+
+### 本地编译 (Local Build)
+
+确保您的系统已安装 [Rust](https://www.rust-lang.org/) 环境。
 
 ```bash
 # 克隆项目
@@ -25,6 +36,7 @@ cargo build --release
 ```
 
 编译后的二进制文件位于 `target/release/mcp-git-summarizer`。
+
 
 ## 配置 MCP 客户端
 
