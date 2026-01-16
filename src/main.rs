@@ -11,23 +11,29 @@ use std::io::{self, BufRead, Write};
 use std::sync::Mutex;
 
 struct ServerConfig {
-    commit_format: String,
+    commit_format: Vec<String>,
+    extra_constraints: Vec<String>,
 }
 
 lazy_static::lazy_static! {
     static ref CONFIG: Mutex<ServerConfig> = Mutex::new(ServerConfig {
-        commit_format: r#"<type>[optional scope]: <english description>
-
-[English body]
-
-[Chinese body]
-
-Log: [short description of the change use chinese language]
-PMS: <BUG-number> or <TASK-number> (必须包含 'BUG-' 或 'TASK-' 前缀。如果没有，必须询问用户；若用户明确不提供，则从提交信息中删除此行)
-Influence: Explain in Chinese the potential impact of this submission."#.to_string(),
+        commit_format: vec![
+            "<type>[optional scope]: <english description>".to_string(),
+            "".to_string(),
+            "[English body]".to_string(),
+            "".to_string(),
+            "[Chinese body]".to_string(),
+            "".to_string(),
+            "Log: [short description of the change use chinese language]".to_string(),
+            "PMS: <BUG-number> or <TASK-number> (必须包含 'BUG-' 或 'TASK-' 前缀。如果没有，必须询问用户；若用户明确不提供，则从提交信息中删除此行)".to_string(),
+            "Influence: Explain in Chinese the potential impact of this submission.".to_string(),
+        ],
+        extra_constraints: vec![
+            "Body 的每一行不得超过 80 个字符。".to_string(),
+            "中英文 Body 必须成对出现，不得只写其中一个。".to_string(),
+        ],
     });
 }
-
 
 
 #[tokio::main]
@@ -54,11 +60,28 @@ async fn main() -> Result<()> {
                         serde_json::from_value::<InitializeParams>(params_val.clone())
                     {
                         if let Some(options) = params.options {
-                            if let Some(format) =
-                                options.get("commitFormat").and_then(|v| v.as_str())
+                            let mut config = CONFIG.lock().unwrap();
+                            if let Some(format_val) = options.get("commitFormat") {
+                                if let Some(s) = format_val.as_str() {
+                                    config.commit_format = vec![s.to_string()];
+                                } else if let Some(arr) = format_val.as_array() {
+                                    config.commit_format = arr
+                                        .iter()
+                                        .filter_map(|v| v.as_str())
+                                        .map(|s| s.to_string())
+                                        .collect();
+                                }
+                            }
+
+
+                            if let Some(constraints) =
+                                options.get("extraConstraints").and_then(|v| v.as_array())
                             {
-                                let mut config = CONFIG.lock().unwrap();
-                                config.commit_format = format.to_string();
+                                config.extra_constraints = constraints
+                                    .iter()
+                                    .filter_map(|v| v.as_str())
+                                    .map(|s| s.to_string())
+                                    .collect();
                             }
                         }
                     }
@@ -83,8 +106,17 @@ async fn main() -> Result<()> {
             }
             "tools/list" => {
                 let config = CONFIG.lock().unwrap();
-                let format_hint = config.commit_format.clone();
+                let format_hint = config.commit_format.join("\n");
+                let extra_constraints_hint = config
+
+                    .extra_constraints
+                    .iter()
+                    .map(|c| format!("- {}", c))
+                    .collect::<Vec<_>>()
+                    .join("\n");
+
                 let tools = vec![
+
                     Tool {
                         name: "list_unstaged".to_string(),
                         description: "列出当前项目中所有未暂存（unstaged）或未跟踪（untracked）的文件。".to_string(),
@@ -122,12 +154,12 @@ async fn main() -> Result<()> {
                             3. 用户预览与修改：展示草稿，询问用户确认。\n\
                             4. 严禁直接提交：必须得到用户明确确认后才能执行 execute_commit。\n\n\
                             ### 提交格式要求：\n{}\n\n\
-                            ### 额外约束：\n\
-                            - Body 的每一行不得超过 80 个字符。\n\
-                            - 中英文 Body 必须成对出现，不得只写其中一个。",
+                            ### 额外约束：\n{}",
 
-                            format_hint
+                            format_hint,
+                            extra_constraints_hint
                         ),
+
                         input_schema: json!({
                             "type": "object",
                             "properties": {}
@@ -154,7 +186,9 @@ async fn main() -> Result<()> {
                     serde_json::from_value(request.params.clone().unwrap_or_default())?;
                 let tool_result = match params.name.as_str() {
                     "list_unstaged" => match GitHandler::get_unstaged_files() {
-                        Ok(files) => json!({ "content": [{ "type": "text", "text": format!("未暂存的文件：\n{}", files.join("\n")) }] }),
+                        Ok(files) => {
+                            json!({ "content": [{ "type": "text", "text": format!("未暂存的文件：\n{}", files.join("\n")) }] })
+                        }
                         Err(e) => {
                             json!({ "isError": true, "content": [{ "type": "text", "text": e.to_string() }] })
                         }
@@ -177,7 +211,6 @@ async fn main() -> Result<()> {
                         }
                     }
                     "get_staged_diff" => match GitHandler::get_staged_diff() {
-
                         Ok(diff) => json!({ "content": [{ "type": "text", "text": diff }] }),
                         Err(e) => {
                             json!({ "isError": true, "content": [{ "type": "text", "text": e.to_string() }] })
