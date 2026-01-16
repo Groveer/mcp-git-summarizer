@@ -224,11 +224,12 @@ async fn main() -> Result<()> {
                     "get_staged_diff" => match GitHandler::get_staged_diff() {
                         Ok(diff) => {
                             let text = format!(
-                                "{}\n\n工作流提醒：\n1. 请根据上述差异总结一个提交信息草稿。\n2. **必须**询问用户确认 PMS 单号（格式如 BUG-123 或 TASK-456）。\n3. 展示最终提交信息并请求用户明确确认。\n4. 只有在用户确认后，才可调用 `execute_commit`。",
+                                "{}\n\n工作流提醒：\n1. 请根据上述差异总结一个提交信息草稿。\n2. **必须**询问用户确认 PMS 单号（格式如 BUG-123 或 TASK-456）。\n3. 展示最终提交信息并请求用户明确确认。\n4. **重要**：如果用户对信息进行了修改或提出了反馈，必须重新展示完整的修改后信息并再次请求确认。\n5. 只有在用户对最终展示的信息表示明确认可（如“可以提交”）后，才可调用 `execute_commit`。",
                                 diff
                             );
                             json!({ "content": [{ "type": "text", "text": text }] })
                         }
+
 
                         Err(e) => {
                             json!({ "isError": true, "content": [{ "type": "text", "text": e.to_string() }] })
