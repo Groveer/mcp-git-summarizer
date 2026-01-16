@@ -86,7 +86,31 @@ async fn main() -> Result<()> {
                 let format_hint = config.commit_format.clone();
                 let tools = vec![
                     Tool {
+                        name: "list_unstaged".to_string(),
+                        description: "列出当前项目中所有未暂存（unstaged）或未跟踪（untracked）的文件。".to_string(),
+                        input_schema: json!({
+                            "type": "object",
+                            "properties": {}
+                        }),
+                    },
+                    Tool {
+                        name: "stage_files".to_string(),
+                        description: "将指定的文件添加到 Git 暂存区。".to_string(),
+                        input_schema: json!({
+                            "type": "object",
+                            "properties": {
+                                "paths": {
+                                    "type": "array",
+                                    "items": { "type": "string" },
+                                    "description": "要暂存的文件路径列表"
+                                }
+                            },
+                            "required": ["paths"]
+                        }),
+                    },
+                    Tool {
                         name: "get_staged_diff".to_string(),
+
                         description: format!(
                             "获取当前 git 暂存区的变更内容 (git diff --staged)。\n\n\
                             ### 工作流要求：\n\
@@ -129,7 +153,31 @@ async fn main() -> Result<()> {
                 let params: CallToolParams =
                     serde_json::from_value(request.params.clone().unwrap_or_default())?;
                 let tool_result = match params.name.as_str() {
+                    "list_unstaged" => match GitHandler::get_unstaged_files() {
+                        Ok(files) => json!({ "content": [{ "type": "text", "text": format!("未暂存的文件：\n{}", files.join("\n")) }] }),
+                        Err(e) => {
+                            json!({ "isError": true, "content": [{ "type": "text", "text": e.to_string() }] })
+                        }
+                    },
+                    "stage_files" => {
+                        let arguments = params.arguments.as_ref();
+                        let paths = arguments
+                            .and_then(|a| a["paths"].as_array())
+                            .map(|arr| {
+                                arr.iter()
+                                    .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                                    .collect::<Vec<String>>()
+                            })
+                            .unwrap_or_default();
+                        match GitHandler::stage_files(paths) {
+                            Ok(res) => json!({ "content": [{ "type": "text", "text": res }] }),
+                            Err(e) => {
+                                json!({ "isError": true, "content": [{ "type": "text", "text": e.to_string() }] })
+                            }
+                        }
+                    }
                     "get_staged_diff" => match GitHandler::get_staged_diff() {
+
                         Ok(diff) => json!({ "content": [{ "type": "text", "text": diff }] }),
                         Err(e) => {
                             json!({ "isError": true, "content": [{ "type": "text", "text": e.to_string() }] })

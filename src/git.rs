@@ -22,7 +22,6 @@ impl GitHandler {
             true
         })?;
 
-
         if diff_text.is_empty() {
             return Err(anyhow!("没有发现已暂存的变更。"));
         }
@@ -46,16 +45,43 @@ impl GitHandler {
 
         let parents_refs: Vec<&git2::Commit> = parent_commits.iter().collect();
 
-        let commit_id = repo.commit(
-            Some("HEAD"),
-            &sig,
-            &sig,
-            message,
-            &tree,
-            &parents_refs,
-        )?;
+        let commit_id = repo.commit(Some("HEAD"), &sig, &sig, message, &tree, &parents_refs)?;
 
         Ok(format!("Commit successful: {}", commit_id))
+    }
+
+    pub fn get_unstaged_files() -> Result<Vec<String>> {
+        let repo = Repository::open(".")?;
+        let mut opts = git2::StatusOptions::new();
+        opts.include_untracked(true).recurse_untracked_dirs(true);
+        let statuses = repo.statuses(Some(&mut opts))?;
+
+        let mut files = Vec::new();
+        for entry in statuses.iter() {
+            let status = entry.status();
+            if status.is_wt_new()
+                || status.is_wt_modified()
+                || status.is_wt_deleted()
+                || status.is_wt_renamed()
+            {
+                if let Some(path) = entry.path() {
+                    files.push(path.to_string());
+                }
+            }
+        }
+        Ok(files)
+    }
+
+    pub fn stage_files(paths: Vec<String>) -> Result<String> {
+        let repo = Repository::open(".")?;
+        let mut index = repo.index()?;
+
+        for path in paths {
+            index.add_path(std::path::Path::new(&path))?;
+        }
+
+        index.write()?;
+        Ok("Files staged successfully".to_string())
     }
 
 }
